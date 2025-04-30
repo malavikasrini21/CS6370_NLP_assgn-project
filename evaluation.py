@@ -1,4 +1,5 @@
 from util import *
+import math
 
 # Add your import statements here
 
@@ -33,6 +34,11 @@ class Evaluation():
 		precision = -1
 
 		#Fill in code here
+		top_k_docs = query_doc_IDs_ordered[:k]
+		# Count how many of the top k documents are in the true_doc_IDs (relevant documents)
+		relevant_count = sum(1 for doc_id in top_k_docs if doc_id in true_doc_IDs)
+		# Precision is the number of relevant documents in the top k divided by k
+		precision = relevant_count / k
 
 		return precision
 
@@ -65,6 +71,18 @@ class Evaluation():
 		meanPrecision = -1
 
 		#Fill in code here
+		total_precision = 0.0
+		num_queries = len(query_ids)
+		for i in range(num_queries):
+			query_id = query_ids[i]
+			predicted_docs = doc_IDs_ordered[i]
+			# Extract relevant documents for this query from qrels
+			true_doc_IDs = [int(rel['id']) for rel in qrels if int(rel['query_num']) == query_id]
+			# Compute precision for this query
+			precision = self.queryPrecision(predicted_docs, query_id, true_doc_IDs, k)
+			total_precision += precision
+			
+		meanPrecision = total_precision / num_queries if num_queries > 0 else 0.0
 
 		return meanPrecision
 
@@ -95,6 +113,15 @@ class Evaluation():
 		recall = -1
 
 		#Fill in code here
+		top_k_docs = query_doc_IDs_ordered[:k]
+		# Count how many of the top k documents are in the true relevant documents
+		relevant_retrieved = sum(1 for doc_id in top_k_docs if doc_id in true_doc_IDs)
+		# Avoid division by zero
+		if len(true_doc_IDs) == 0:
+			recall = 0.0
+		else:
+			# Recall is the number of relevant documents retrieved divided by total relevant documents
+			recall = relevant_retrieved / len(true_doc_IDs)
 
 		return recall
 
@@ -127,6 +154,18 @@ class Evaluation():
 		meanRecall = -1
 
 		#Fill in code here
+		total_recall = 0.0
+		num_queries = len(query_ids)
+		for i in range(num_queries):
+			query_id = query_ids[i]
+			predicted_docs = doc_IDs_ordered[i]
+			# Extract relevant documents for this query from qrels
+			true_doc_IDs = [int(rel['id']) for rel in qrels if int(rel['query_num']) == query_id]
+			# Compute recall for this query
+			recall = self.queryRecall(predicted_docs, query_id, true_doc_IDs, k)
+			total_recall += recall
+		meanRecall = total_recall / num_queries if num_queries > 0 else 0.0
+
 
 		return meanRecall
 
@@ -157,6 +196,15 @@ class Evaluation():
 		fscore = -1
 
 		#Fill in code here
+		# Calculate precision and recall for the query
+		precision = self.queryPrecision(query_doc_IDs_ordered, query_id, true_doc_IDs, k)
+		recall = self.queryRecall(query_doc_IDs_ordered, query_id, true_doc_IDs, k)
+		# Avoid division by zero
+		if precision + recall == 0:
+			fscore = 0.0
+		else:
+			# Harmonic mean of precision and recall
+			fscore = 2 * (precision * recall) / (precision + recall)
 
 		return fscore
 
@@ -189,6 +237,17 @@ class Evaluation():
 		meanFscore = -1
 
 		#Fill in code here
+		total_fscore = 0.0
+		num_queries = len(query_ids)
+		for i in range(num_queries):
+			query_id = query_ids[i]
+			predicted_docs = doc_IDs_ordered[i]
+			# Extract relevant documents for this query from qrels
+			true_doc_IDs = [int(rel['id']) for rel in qrels if int(rel['query_num']) == query_id]
+			# Compute fscore for this query
+			fscore = self.queryFscore(predicted_docs, query_id, true_doc_IDs, k)
+			total_fscore += fscore
+		meanFscore = total_fscore / num_queries if num_queries > 0 else 0.0
 
 		return meanFscore
 	
@@ -219,6 +278,17 @@ class Evaluation():
 		nDCG = -1
 
 		#Fill in code here
+		# Compute DCG
+		DCG = 0.0
+		for i in range(min(k, len(query_doc_IDs_ordered))):
+			doc_id = query_doc_IDs_ordered[i]
+			if doc_id in true_doc_IDs:
+				DCG += 1 / math.log2(i + 2)  # i+2 because log2(1) = 0 for i=0
+		# Compute IDCG (ideal DCG)
+		ideal_hits = min(k, len(true_doc_IDs))
+		IDCG = sum(1 / math.log2(i + 2) for i in range(ideal_hits))
+		# Compute nDCG
+		nDCG = DCG / IDCG if IDCG > 0 else 0.0
 
 		return nDCG
 
@@ -251,6 +321,17 @@ class Evaluation():
 		meanNDCG = -1
 
 		#Fill in code here
+		total_nDCG = 0.0
+		num_queries = len(query_ids)
+		for i in range(num_queries):
+			query_id = query_ids[i]
+			predicted_docs = doc_IDs_ordered[i]
+			# Extract relevant documents for this query from qrels
+			true_doc_IDs = [int(rel['id']) for rel in qrels if int(rel['query_num']) == query_id]
+			# Compute nDCG for this query
+			nDCG = self.queryNDCG(predicted_docs, query_id, true_doc_IDs, k)
+			total_nDCG += nDCG
+		meanNDCG = total_nDCG / num_queries if num_queries > 0 else 0.0
 
 		return meanNDCG
 
@@ -282,6 +363,15 @@ class Evaluation():
 		avgPrecision = -1
 
 		#Fill in code here
+		relevant_found = 0
+		precision_sum = 0.0
+		for i in range(min(k, len(query_doc_IDs_ordered))):
+			doc_id = query_doc_IDs_ordered[i]
+			if doc_id in true_doc_IDs:
+				relevant_found += 1
+				precision = relevant_found / (i + 1)
+				precision_sum += precision
+		avgPrecision = precision_sum / len(true_doc_IDs) if len(true_doc_IDs) > 0 else 0.0
 
 		return avgPrecision
 
@@ -314,6 +404,18 @@ class Evaluation():
 		meanAveragePrecision = -1
 
 		#Fill in code here
+		total_ap = 0.0
+		num_queries = len(query_ids)
+		for i in range(num_queries):
+			query_id = query_ids[i]
+			predicted_docs = doc_IDs_ordered[i]
+			# Get relevant documents for this query
+			true_doc_IDs = [int(rel['id']) for rel in q_rels if int(rel['query_num']) == query_id]
+			# Compute average precision for this query
+			ap = self.queryAveragePrecision(predicted_docs, query_id, true_doc_IDs, k)
+			total_ap += ap
+		meanAveragePrecision = total_ap / num_queries if num_queries > 0 else 0.0
+
 
 		return meanAveragePrecision
 

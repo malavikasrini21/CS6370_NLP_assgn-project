@@ -8,7 +8,8 @@ from evaluation import Evaluation
 from sys import version_info
 import argparse
 import json
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import time
 
 # Input compatibility for Python 2 and Python 3
 if version_info.major == 3:
@@ -142,30 +143,40 @@ class SearchEngine:
 		  for all queries in the Cranfield dataset
 		- produces graphs of the evaluation metrics in the output folder
 		"""
-
+		start_time_total = time.time()
 		# Read queries
 		queries_json = json.load(open(args.dataset + "cran_queries.json", 'r'))[:]
 		query_ids, queries = [item["query number"] for item in queries_json], \
 								[item["query"] for item in queries_json]
 		# Process queries 
+		start_time = time.time()
 		processedQueries = self.preprocessQueries(queries)
+		print(f"Time taken to preprocess queries: {time.time() - start_time:.2f} seconds")
 
 		# Read documents
 		docs_json = json.load(open(args.dataset + "cran_docs.json", 'r'))[:]
 		doc_ids, docs = [item["id"] for item in docs_json], \
 								[item["body"] for item in docs_json]
 		# Process documents
+		start_time = time.time()
 		processedDocs = self.preprocessDocs(docs)
+		print(f"Time taken to preprocess documents: {time.time() - start_time:.2f} seconds")
 
 		# Build document index
+		start_time = time.time()
 		self.informationRetriever.buildIndex(processedDocs, doc_ids)
+		print(f"Time taken to build index: {time.time() - start_time:.2f} seconds")
+		
 		# Rank the documents for each query
+		start_time = time.time()
 		doc_IDs_ordered = self.informationRetriever.rank(processedQueries)
-
+		print(f"Time taken to rank documents: {time.time() - start_time:.2f} seconds")
+		
 		# Read relevance judements
 		qrels = json.load(open(args.dataset + "cran_qrels.json", 'r'))[:]
 
 		# Calculate precision, recall, f-score, MAP and nDCG for k = 1 to 10
+		start_time = time.time()
 		precisions, recalls, fscores, MAPs, nDCGs = [], [], [], [], []
 		for k in range(1, 11):
 			precision = self.evaluator.meanPrecision(
@@ -188,7 +199,7 @@ class SearchEngine:
 			nDCGs.append(nDCG)
 			print("MAP, nDCG @ " +  
 				str(k) + " : " + str(MAP) + ", " + str(nDCG))
-
+		print(f"Time taken for evaluation metrics: {time.time() - start_time:.2f} seconds")
 		# Plot the metrics and save plot 
 		plt.plot(range(1, 11), precisions, label="Precision")
 		plt.plot(range(1, 11), recalls, label="Recall")
@@ -199,6 +210,7 @@ class SearchEngine:
 		plt.title("Evaluation Metrics - Cranfield Dataset")
 		plt.xlabel("k")
 		plt.savefig(args.out_folder + "eval_plot.png")
+		print(f"Total time taken: {time.time() - start_time_total:.2f} seconds")
 
 		
 	def handleCustomQuery(self):
@@ -209,21 +221,33 @@ class SearchEngine:
 		#Get query
 		print("Enter query below")
 		query = input()
-		# Process documents
+
+		start_total = time.time()
+		# Process query
+		start = time.time()
 		processedQuery = self.preprocessQueries([query])[0]
+		print(f"Time taken to preprocess query: {time.time() - start:.4f} seconds")
 
 		# Read documents
 		docs_json = json.load(open(args.dataset + "cran_docs.json", 'r'))[:]
 		doc_ids, docs = [item["id"] for item in docs_json], \
 							[item["body"] for item in docs_json]
 		# Process documents
+		start = time.time()
 		processedDocs = self.preprocessDocs(docs)
+		print(f"Time taken to preprocess documents: {time.time() - start:.4f} seconds")
 
 		# Build document index
+		start = time.time()
 		self.informationRetriever.buildIndex(processedDocs, doc_ids)
+		print(f"Time taken to build index: {time.time() - start:.4f} seconds")
+		
 		# Rank the documents for the query
+		start = time.time()
 		doc_IDs_ordered = self.informationRetriever.rank([processedQuery])[0]
+		print(f"Time taken to rank documents: {time.time() - start:.4f} seconds")
 
+		print(f"Total time taken for custom query: {time.time() - start_total:.4f} seconds")
 		# Print the IDs of first five documents
 		print("\nTop five document IDs : ")
 		for id_ in doc_IDs_ordered[:5]:
